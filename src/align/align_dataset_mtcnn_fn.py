@@ -44,7 +44,7 @@ def main(args):
     # Store some git revision info in a text file in the log directory
     src_path,_ = os.path.split(os.path.realpath(__file__))
     facenet.store_revision_info(src_path, output_dir, ' '.join(sys.argv))
-    dataset = facenet.get_dataset(args.input_dir) # TODO: facenet.get_dataset returned data structure
+    dataset = facenet.get_dataset(args.input_dir, False)
     
     print('Creating networks and loading parameters')
     
@@ -68,8 +68,6 @@ def main(args):
         if args.random_order:
             random.shuffle(dataset)
         for cls in dataset:
-        # dataset = [cls, cls, ...]
-        # cls = { name: string, image_paths: [image_path: string, image_path] }
             output_class_dir = os.path.join(output_dir, cls.name)
             if not os.path.exists(output_class_dir):
                 os.makedirs(output_class_dir)
@@ -77,14 +75,11 @@ def main(args):
                     random.shuffle(cls.image_paths)
             for image_path in cls.image_paths:
                 nrof_images_total += 1
-                # os.path.split('/tmp/kzhu/hello.txt') = ('/tmp/kzhu/', 'hello.txt')
-                # os.path.splitext('hello.txt') = ('hello', 'txt')
                 filename = os.path.splitext(os.path.split(image_path)[1])[0]
                 output_filename = os.path.join(output_class_dir, filename+'.png')
                 print(image_path)
                 if not os.path.exists(output_filename):
                     try:
-                        # scipy.misc.imread: RGB narray, [w:h:channel]
                         img = misc.imread(image_path)
                     except (IOError, ValueError, IndexError) as e:
                         errorMessage = '{}: {}'.format(image_path, e)
@@ -96,7 +91,7 @@ def main(args):
                             continue
                         if img.ndim == 2:
                             img = facenet.to_rgb(img)
-                        img = img[:,:,0:3] # make a copy. Why?
+                        img = img[:,:,0:3]
     
                         bounding_boxes, _ = align.detect_face.detect_face(img, minsize, pnet, rnet, onet, threshold, factor)
                         nrof_faces = bounding_boxes.shape[0]
@@ -112,16 +107,12 @@ def main(args):
                                 det = det[index,:]
                             det = np.squeeze(det)
                             bb = np.zeros(4, dtype=np.int32)
-                            # seems like margin gives some extra context beyond boundingbox given by MTCNN
                             bb[0] = np.maximum(det[0]-args.margin/2, 0)
                             bb[1] = np.maximum(det[1]-args.margin/2, 0)
                             bb[2] = np.minimum(det[2]+args.margin/2, img_size[1])
                             bb[3] = np.minimum(det[3]+args.margin/2, img_size[0])
                             cropped = img[bb[1]:bb[3],bb[0]:bb[2],:]
                             scaled = misc.imresize(cropped, (args.image_size, args.image_size), interp='bilinear')
-                            ### The cropped image is stored here in scaled 
-                            ### For our purpose, this image is not neccesarily to be saved on disk 
-                            ###     but passed directly to facenet for an embedding.
                             nrof_successfully_aligned += 1
                             misc.imsave(output_filename, scaled)
                             text_file.write('%s %d %d %d %d\n' % (output_filename, bb[0], bb[1], bb[2], bb[3]))

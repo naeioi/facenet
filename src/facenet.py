@@ -239,7 +239,7 @@ def crop(image, random_crop, image_size):
             (h, v) = (0,0)
         image = image[(sz1-sz2+v):(sz1+sz2+v),(sz1-sz2+h):(sz1+sz2+h),:]
     return image
-  
+
 def flip(image, random_flip):
     if random_flip and np.random.choice([True, False]):
         image = np.fliplr(image)
@@ -250,6 +250,20 @@ def to_rgb(img):
     ret = np.empty((w, h, 3), dtype=np.uint8)
     ret[:, :, 0] = ret[:, :, 1] = ret[:, :, 2] = img
     return ret
+  
+def preprocess_data(images_, do_random_crop, do_random_flip, image_size, do_prewhiten=True):
+    nrof_samples = len(images_)
+    images = np.zeros((nrof_samples, image_size, image_size, 3))
+    for i in range(nrof_samples):
+        img = images_[i]
+        if img.ndim == 2:
+            img = to_rgb(img)
+        if do_prewhiten:
+            img = prewhiten(img)
+        img = crop(img, do_random_crop, image_size)
+        img = flip(img, do_random_flip)
+        images[i,:,:,:] = img
+    return images
   
 def load_data(image_paths, do_random_crop, do_random_flip, image_size, do_prewhiten=True):
     nrof_samples = len(image_paths)
@@ -326,15 +340,18 @@ def get_dataset(paths, has_class_directories=True):
     dataset = []
     for path in paths.split(':'):
         path_exp = os.path.expanduser(path)
-        classes = os.listdir(path_exp)
-        classes.sort()
-        nrof_classes = len(classes)
-        for i in range(nrof_classes):
-            class_name = classes[i]
-            facedir = os.path.join(path_exp, class_name)
-            image_paths = get_image_paths(facedir)
-            dataset.append(ImageClass(class_name, image_paths))
-  
+        if(has_class_directories): 
+            classes = os.listdir(path_exp)
+            classes.sort()
+            nrof_classes = len(classes)
+            for i in range(nrof_classes):
+                class_name = classes[i]
+                facedir = os.path.join(path_exp, class_name)
+                image_paths = get_image_paths(facedir)
+                dataset.append(ImageClass(class_name, image_paths))
+        else:
+            image_paths = get_image_paths(path)
+            dataset.append(ImageClass("noname", image_paths))
     return dataset
 
 def get_image_paths(facedir):

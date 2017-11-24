@@ -75,6 +75,10 @@ def main(args):
                 start_index = i*batch_size
                 end_index = min((i+1)*batch_size, nrof_images)
                 paths_batch = paths[start_index:end_index]
+                ### here a batch of image paths is passed to facenet to compute their embeddings.
+                ### For our purpose, the batch size is 1 
+                ### and the image is passed in by parameter, rather then read from disk
+                # facenet.load_data: [index, w, h, channel]. w == h in practise.
                 images = facenet.load_data(paths_batch, False, False, image_size)
                 feed_dict = { images_placeholder:images, phase_train_placeholder:False }
                 emb_array[start_index:end_index,:] = sess.run(embeddings, feed_dict=feed_dict)
